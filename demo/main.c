@@ -6,7 +6,12 @@
 #define W 480
 #define H 800
 
+/* 两种编译器都能识别的 8 字节对齐 */
+#if defined(_MSC_VER)
+static __declspec(align(8)) uint8_t render_buf[W * H * 4];
+#else
 static uint8_t render_buf[W * H * 4] __attribute__((aligned(8)));
+#endif
 static uint32_t frame[W * H];
 static lv_obj_t * g_slider;
 
