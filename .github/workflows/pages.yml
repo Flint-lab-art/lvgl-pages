@@ -1,0 +1,57 @@
+name: Build LVGL render & deploy page
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone LVGL v9.3.0
+        run: git clone --depth 1 --branch v9.3.0 https://github.com/lvgl/lvgl.git third_party/lvgl
+
+      - name: Configure & build offscreen renderer
+        run: |
+          cmake -S demo -B build -DCMAKE_BUILD_TYPE=Release -DLVGL_DIR="$PWD/third_party/lvgl"
+          cmake --build build -j"$(nproc)"
+
+      - name: Render frames (no display needed)
+        run: |
+          mkdir -p frames
+          ./build/render
+
+      - name: Convert raw frames to PNG / GIF
+        run: python3 -m pip install --quiet pillow numpy && python3 scripts/raw2png.py
+
+      - name: Assemble site
+        run: |
+          mkdir -p site/assets
+          cp lvgl-panel.html site/index.html
+          cp lvgl-demo.png lvgl-demo.gif site/assets/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

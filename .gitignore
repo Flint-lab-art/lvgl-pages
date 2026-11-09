@@ -1,0 +1,7 @@
+build/
+third_party/
+frames/
+frame.raw
+lvgl-demo.png
+lvgl-demo.gif
+site/
