@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>没有显示器的机器，画出了这块屏 · LVGL 离屏渲染</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F6FE0'/%3E%3Crect x='9' y='6' width='14' height='20' rx='3' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#ECEDEF;
+  --card:#FFFFFF;
+  --line:#D6D9DF;
+  --ink:#15181F;
+  --muted:#5E6675;
+  --accent:#2F6FE0;
+  --deep:#151A26;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  font-size:16px;line-height:1.7;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 56px}
+
+/* ---- 顶部 ---- */
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+     border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:34px}
+.brand{font-size:14px;letter-spacing:.14em;color:var(--muted)}
+.brand b{color:var(--ink);letter-spacing:.08em}
+.top .meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---- 主体两栏 ---- */
+.lede{display:grid;grid-template-columns:1fr;gap:28px}
+@media (min-width:860px){
+  .lede{grid-template-columns:1.05fr .95fr;gap:44px;align-items:start}
+}
+h1{
+  font-family:"Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif;
+  font-weight:600;font-size:34px;line-height:1.32;margin:0 0 16px;letter-spacing:-.01em;
+}
+@media (min-width:860px){h1{font-size:40px}}
+h1 em{font-style:normal;color:var(--accent)}
+p.body{color:#2C323D;margin:0 0 14px;max-width:34em}
+p.body.dim{color:var(--muted)}
+
+/* 参数条 */
+.spec{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);
+      border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:22px}
+@media (min-width:520px){.spec{grid-template-columns:repeat(4,1fr)}}
+.spec div{background:var(--card);padding:12px 14px}
+.spec dt{font-size:12px;color:var(--muted);margin-bottom:2px}
+.spec dd{margin:0;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---- 设备 ---- */
+.device{position:relative;margin:0 auto;max-width:360px}
+.bezel{
+  background:var(--deep);border-radius:30px;padding:14px 12px 18px;
+  box-shadow:0 18px 40px -22px rgba(21,26,38,.55),0 0 0 1px rgba(21,26,38,.08);
+}
+.screen{border-radius:18px;overflow:hidden;background:#0B0E14;display:block}
+.screen img{display:block;width:100%;height:auto}
+.notch{width:64px;height:5px;border-radius:3px;background:#2A3040;margin:0 auto 10px}
+.caption{margin-top:14px;font-size:13px;color:var(--muted);text-align:center}
+.caption b{color:var(--ink);font-weight:600}
+
+/* ---- 分节 ---- */
+hr.rule{border:0;border-top:1px solid var(--line);margin:44px 0 30px}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.sec-head h2{
+  font-family:"Songti SC","Noto Serif CJK SC",serif;font-size:24px;font-weight:600;margin:0;
+}
+.sec-head span{font-size:13px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:1fr;gap:26px}
+@media (min-width:860px){.cols{grid-template-columns:1fr 1fr;gap:36px}}
+
+/* 控件清单 */
+.widgets{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 18px;padding:0;list-style:none}
+.widgets li{
+  font-size:13px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
+  background:var(--card);color:#2C323D;font-variant-numeric:tabular-nums
+}
+
+/* 代码块 */
+.codecard{background:var(--deep);border-radius:12px;overflow:hidden;box-shadow:0 12px 26px -20px rgba(21,26,38,.6)}
+.codecard .bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.codecard .bar i{width:9px;height:9px;border-radius:50%;background:#3A4152;display:block}
+.codecard .bar .name{margin-left:6px;font-size:12px;color:#7E8AA3;letter-spacing:.02em}
+pre{margin:0;padding:16px 16px 18px;overflow-x:auto;font-size:13px;line-height:1.65;
+    font-family:ui-monospace,"SFMono-Regular","JetBrains Mono",Menlo,Consolas,monospace;color:#C8D0E0}
+pre .k{color:#7EA6F2}
+pre .c{color:#6C7688}
+pre .s{color:#8FD3A8}
+pre .n{color:#E4C489}
+
+/* 步骤 */
+.steps{margin:0;padding:0;list-style:none;
+       display:grid;grid-template-columns:1fr;gap:1px;background:var(--line);
+       border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.steps li{background:var(--card);padding:16px 18px;display:grid;grid-template-columns:auto 1fr;gap:14px}
+.steps li .idx{
+  width:26px;height:26px;border-radius:7px;background:#EDF1FB;color:var(--accent);
+  font-size:13px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums
+}
+.steps li h3{margin:0 0 3px;font-size:15px;font-weight:600}
+.steps li p{margin:0;font-size:14px;color:var(--muted)}
+
+/* 提示 */
+.note{
+  margin-top:20px;padding:14px 16px;border-left:3px solid var(--accent);background:#fff;
+  border-radius:0 10px 10px 0;font-size:14px;color:#2C323D
+}
+.note b{font-weight:600}
+
+/* 页脚 */
+footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);
+       display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;font-size:13px;color:var(--muted)}
+footer a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(47,111,224,.35)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand"><b>LVGL</b> ／ 离屏渲染实验</div>
+    <div class="meta">v9.3.0 · gcc 11.4 · Ubuntu 22.04 · 无显示器</div>
+  </div>
+
+  <div class="lede">
+    <div>
+      <h1>一台<em>没有显示器</em>的机器，<br>画出了这块屏。</h1>
+      <p class="body">这不是设计稿，也不是截图工具拼出来的效果图。这台 Linux 云主机上没有 X11、没有 SDL、没有窗口系统，LVGL 把 480×800 的界面直接渲染进一块内存缓冲区，再把字节导出成图片。</p>
+      <p class="body dim">右边那张动图就是编译产物：C 代码、CMake、gcc，一路跑通后落盘的帧。</p>
+
+      <dl class="spec">
+        <div><dt>分辨率</dt><dd>480 × 800</dd></div>
+        <div><dt>色深</dt><dd>ARGB8888</dd></div>
+        <div><dt>运行时堆峰值</dt><dd>25.4 KB</dd></div>
+        <div><dt>可执行段</dt><dd>854 KB</dd></div>
+      </dl>
+    </div>
+
+    <figure class="device" style="margin:0">
+      <div class="bezel">
+        <div class="notch"></div>
+        <span class="screen"><img src="assets/lvgl-demo.gif" width="480" height="800" alt="LVGL 渲染的温控面板界面动图"></span>
+      </div>
+      <figcaption class="caption"><b>lv_demo</b> · 弧形温控、折线图、滑块、开关、符号字体，全部由 C 代码声明</figcaption>
+    </figure>
+  </div>
+
+  <hr class="rule">
+
+  <div class="sec-head">
+    <h2>这套界面由什么组成</h2>
+    <span>控件全部来自 LVGL 内置 Widget 体系，没有一张位图素材</span>
+  </div>
+  <div class="cols">
+    <div>
+      <ul class="widgets">
+        <li>lv_arc</li><li>lv_chart</li><li>lv_slider</li><li>lv_switch</li><li>lv_button</li>
+        <li>lv_label</li><li>LV_SYMBOL_*</li><li>flex 布局</li><li>渐变 + 圆角</li><li>阴影</li>
+      </ul>
+      <p class="body">界面的每一层都在 C 里写出来：卡片是带圆角与渐变的对象，温度环是 <code>lv_arc</code>，曲线是 <code>lv_chart</code> 的 12 个数据点，状态栏图标用的是内置符号字体，不需要额外图片资源。</p>
+      <p class="body dim">运行时堆峰值 25.4 KB 是 <code>lv_mem_monitor()</code> 实测值；1.5 MB 的帧缓冲不属于 LVGL 内存池，它是一块独立的外部缓冲区——在真机上，这块正好对应屏幕的显示缓存。</p>
+    </div>
+    <div>
+      <div class="codecard">
+        <div class="bar"><i></i><i></i><i></i><span class="name">main.c · 离屏渲染的关键三行</span></div>
+<pre><span class="c">/* 没有窗口，只创建一块屏幕 */</span>
+lv_display_t * disp = <span class="k">lv_display_create</span>(<span class="n">480</span>, <span class="n">800</span>);
+<span class="k">lv_display_set_color_format</span>(disp, LV_COLOR_FORMAT_ARGB8888);
+<span class="k">lv_display_set_buffers</span>(disp, render_buf, <span class="n">NULL</span>,
+        <span class="k">sizeof</span>(render_buf), LV_DISPLAY_RENDER_MODE_FULL);
+
+<span class="c">/* flush 回调里把像素拷走，而不是刷到屏幕 */</span>
+<span class="k">static void</span> flush_cb(lv_display_t * d, <span class="k">const</span> lv_area_t * a,
+                     uint8_t * px) {
+    <span class="k">memcpy</span>(&amp;frame[...], px, ...);
+    <span class="k">lv_display_flush_ready</span>(d);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <div class="sec-head">
+    <h2>GitHub Actions 怎么把它变成网站</h2>
+    <span>push 一次，截图重新生成，页面自动发布</span>
+  </div>
+
+  <div class="cols">
+    <div>
+      <ul class="steps">
+        <li><span class="idx">1</span><div><h3>编译 demo</h3><p>runner 上装 gcc + cmake，浅克隆 LVGL v9.3.0 源码，链接静态库。</p></div></li>
+        <li><span class="idx">2</span><div><h3>跑一次渲染</h3><p>程序自己画、自己导帧，产出 <code>frame.raw</code>，再用 Python 转成 PNG / GIF。</p></div></li>
+        <li><span class="idx">3</span><div><h3>部署 Pages</h3><p>页面上传为 artifact，交给 deploy-pages 发布。整个流程不需要图形环境。</p></div></li>
+      </ul>
+
+      <div class="note"><b>为什么这一步能成立：</b>离屏渲染把「显示输出」变成一次函数回调。CI 里没有显示器，回调就把像素交给内存；真机上换成 SPI / RGB 屏的驱动，同一份界面代码不用改。</div>
+    </div>
+
+    <div>
+      <div class="codecard">
+        <div class="bar"><i></i><i></i><i></i><span class="name">.github/workflows/pages.yml</span></div>
+<pre><span class="k">on</span>:
+  push:
+    branches: [main]
+<span class="k">permissions</span>:
+  pages: <span class="s">write</span>
+  id-token: <span class="s">write</span>
+
+<span class="k">jobs</span>:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    <span class="k">steps</span>:
+      - <span class="k">uses</span>: actions/checkout@v4
+      - <span class="k">run</span>: |
+          git clone --depth 1 --branch v9.3.0 \
+            https://github.com/lvgl/lvgl.git third_party/lvgl
+          cmake -S demo -B build -DLVGL_DIR=third_party/lvgl
+          cmake --build build -j
+          ./build/render
+          python3 scripts/raw2png.py
+      - <span class="k">uses</span>: actions/upload-pages-artifact@v3
+        <span class="k">with</span>:
+          path: site/
+      - <span class="k">uses</span>: actions/deploy-pages@v4</pre>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>页面与截图均由本仓库构建产物生成 · 数据取自实际编译运行</div>
+    <div><a href="https://github.com/lvgl/lvgl" target="_blank" rel="noopener">LVGL 仓库</a> · <a href="https://lvgl.io/docs/open" target="_blank" rel="noopener">文档</a></div>
+  </footer>
+
+</div>
+</body>
+</html>
