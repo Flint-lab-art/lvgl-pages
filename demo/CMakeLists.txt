@@ -12,6 +12,14 @@ set(LV_CONF_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h CACHE STRING "" FORCE)
 
 add_subdirectory(${LVGL_DIR} lvgl)
 
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 add_executable(render main.c)
 target_compile_definitions(render PRIVATE LV_CONF_INCLUDE_SIMPLE)
-target_link_libraries(render PRIVATE lvgl m)
+if(WIN32)
+  target_link_libraries(render PRIVATE lvgl)
+else()
+  target_link_libraries(render PRIVATE lvgl m)
+endif()
